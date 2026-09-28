@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../services/db';
 import { AuthService } from '../services/authService';
+import { supabase } from '../services/supabase';
 
 const router = Router();
 
@@ -108,7 +109,24 @@ router.post('/register', (req: Request, res: Response) => {
     year_of_study: year_of_study ? parseInt(year_of_study, 10) : null,
   });
 
-  // 8. Generate session token
+  // 8. Attempt Supabase Auth account sync if configured (non-blocking)
+  if (supabase) {
+    supabase.auth.admin
+      .createUser({
+        email: email.trim().toLowerCase(),
+        password,
+        email_confirm: true,
+        user_metadata: {
+          full_name: full_name.trim(),
+          role: role || 'student',
+          department: department || 'Campus Network User',
+        },
+      })
+      .then(() => console.log(`[SUPABASE AUTH] Synced new account for ${email.trim()}`))
+      .catch((sbErr: any) => console.warn('[SUPABASE AUTH SYNC NOTE]', sbErr?.message || sbErr));
+  }
+
+  // 9. Generate session token
   const token = db.createSession(newProfile.id);
   currentUserId = newProfile.id;
 
@@ -123,8 +141,8 @@ router.post('/register', (req: Request, res: Response) => {
   });
 });
 
-// Real User Login with Password Verification
-router.post('/login', (req: Request, res: Response) => {
+// Real User Login with Password Verification & Supabase Auth Fallback
+router.post('/login', async (req: Request, res: Response) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
@@ -136,7 +154,46 @@ router.post('/login', (req: Request, res: Response) => {
     return;
   }
 
-  const account = db.getAccountByEmail(email);
+  const normalizedEmail = email.trim().toLowerCase();
+  let account = db.getAccountByEmail(normalizedEmail);
+
+  // If account is not in local memory, attempt Supabase Auth verification
+  if (!account && supabase) {
+    try {
+      const { data: sbAuth, error: sbErr } = await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password,
+      });
+
+      if (!sbErr && sbAuth?.user) {
+        const { hash, salt } = AuthService.hashPassword(password);
+        const userMeta = sbAuth.user.user_metadata || {};
+        const newProfile = db.registerUser({
+          full_name: userMeta.full_name || normalizedEmail.split('@')[0],
+          email: normalizedEmail,
+          password_hash: hash,
+          password_salt: salt,
+          role: userMeta.role || 'student',
+          department: userMeta.department || 'Campus Network User',
+        });
+        const token = db.createSession(newProfile.id);
+        currentUserId = newProfile.id;
+
+        res.json({
+          success: true,
+          data: {
+            user: newProfile,
+            token,
+          },
+          error: null,
+        });
+        return;
+      }
+    } catch (sbEx: any) {
+      console.warn('[SUPABASE LOGIN NOTE]', sbEx?.message || sbEx);
+    }
+  }
+
   if (!account) {
     res.status(401).json({
       success: false,

@@ -36,9 +36,23 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
     headers,
   });
 
-  const json: ApiResponse<T> = await res.json();
-  if (!res.ok || !json.success) {
-    throw new Error(json.error?.message || `HTTP ${res.status}: Failed to fetch ${url}`);
+  const text = await res.text();
+  let json: ApiResponse<T> | null = null;
+
+  if (text) {
+    try {
+      json = JSON.parse(text);
+    } catch {
+      // Handle plain-text or HTML responses gracefully (e.g. proxy or 404 pages)
+      if (!res.ok) {
+        throw new Error(`Server returned HTTP ${res.status} (${res.statusText || 'Error'}): ${text.slice(0, 100).trim()}`);
+      }
+      throw new Error(`Invalid response received from server: ${text.slice(0, 100).trim()}`);
+    }
+  }
+
+  if (!res.ok || !json || !json.success) {
+    throw new Error(json?.error?.message || `HTTP ${res.status}: Failed to fetch ${url}`);
   }
   return json.data as T;
 }

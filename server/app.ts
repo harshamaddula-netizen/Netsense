@@ -32,17 +32,24 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-// API Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/network', networkRoutes);
-app.use('/api/reports', reportsRoutes);
-app.use('/api/incidents', incidentsRoutes);
-app.use('/api/analytics', analyticsRoutes);
-app.use('/api/ai', aiRoutes);
-app.use('/api/simulator', simulatorRoutes);
+// API Routes (Mounted under both /api and root to handle direct and rewritten requests seamlessly)
+const apiModules: [string, any][] = [
+  ['/auth', authRoutes],
+  ['/network', networkRoutes],
+  ['/reports', reportsRoutes],
+  ['/incidents', incidentsRoutes],
+  ['/analytics', analyticsRoutes],
+  ['/ai', aiRoutes],
+  ['/simulator', simulatorRoutes],
+];
+
+for (const [routePath, routeHandler] of apiModules) {
+  app.use(`/api${routePath}`, routeHandler);
+  app.use(routePath, routeHandler);
+}
 
 // Health check endpoint
-app.get('/api/health', (req: Request, res: Response) => {
+const handleHealth = (req: Request, res: Response) => {
   res.json({
     status: 'online',
     platform: 'NetSense Campus',
@@ -51,10 +58,14 @@ app.get('/api/health', (req: Request, res: Response) => {
     database_mode: process.env.SUPABASE_URL ? 'SUPABASE_POSTGRES' : 'IN_MEMORY_PERSISTENCE',
     timestamp: new Date().toISOString(),
   });
-});
+};
 
-// Serve frontend build if production
-if (process.env.NODE_ENV === 'production') {
+app.get('/api/health', handleHealth);
+app.get('/health', handleHealth);
+app.get('/api', handleHealth);
+
+// Serve frontend build if standalone production (not on Vercel serverless)
+if (process.env.NODE_ENV === 'production' && !process.env.VERCEL) {
   const distPath = path.join(__dirname, '../dist');
   app.use(express.static(distPath));
   app.get('*', (req: Request, res: Response) => {
@@ -62,21 +73,36 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-// Global error handling middleware
-app.use((err: any, req: Request, res: Response, next: NextFunction) => {
-  console.error('[SERVER ERROR]', err);
-  res.status(500).json({
+// API 404 handler - ensures all unmatched API endpoints always return JSON, never HTML
+app.use(['/api', '/api/*'], (req: Request, res: Response) => {
+  res.status(404).json({
     success: false,
     data: null,
     error: {
-      code: 'INTERNAL_SERVER_ERROR',
+      code: 'NOT_FOUND',
+      message: `API endpoint not found: ${req.method} ${req.originalUrl || req.url}`,
+    },
+  });
+});
+
+// Global error handling middleware - always returns JSON
+app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+  console.error('[SERVER ERROR]', err);
+  const status = typeof err.status === 'number' ? err.status : 500;
+  res.status(status).json({
+    success: false,
+    data: null,
+    error: {
+      code: err.code || 'INTERNAL_SERVER_ERROR',
       message: err.message || 'An unexpected error occurred on the server',
     },
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`
+// Only bind server port in standalone mode (Vercel Serverless executes the exported handler directly)
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`
   ===============================================================
     NETSENSE CAMPUS - INTELLIGENT NETWORK OPERATIONS SERVER
   ===============================================================
@@ -86,6 +112,7 @@ app.listen(PORT, () => {
     APIs:     http://localhost:${PORT}/api/health
   ===============================================================
   `);
-});
+  });
+}
 
 export default app;
