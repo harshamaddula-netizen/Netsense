@@ -1,0 +1,147 @@
+@import 'leaflet/dist/leaflet.css';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: #030712;
+    color: #f3f4f6;
+  }
+}
+
+/* Glassmorphism Utilities */
+.glass-panel {
+  background: rgba(17, 24, 39, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-panel-subtle {
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.glass-panel-glow {
+  background: rgba(17, 24, 39, 0.85);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(20, 184, 166, 0.2);
+  box-shadow: 0 0 25px rgba(20, 184, 166, 0.08);
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0b0f19;
+}
+::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
+
+/* Radar Animation */
+@keyframes pulseGlow {
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 3s ease-in-out infinite;
+}
+
+/* ==========================================================================
+   Smooth Animated Wi-Fi & Network Background Waves
+   ========================================================================== */
+@keyframes wifiWaveExpand {
+  0% {
+    opacity: 0;
+    transform: scale(0.96) translateY(6px);
+  }
+  20% {
+    opacity: 0.85;
+  }
+  55% {
+    opacity: 0.45;
+  }
+  85% {
+    opacity: 0.15;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.08) translateY(-14px);
+  }
+}
+
+.wifi-wave {
+  transform-origin: 500px 620px;
+  animation: wifiWaveExpand 9.5s cubic-bezier(0.25, 1, 0.5, 1) infinite;
+  will-change: transform, opacity;
+}
+
+.wifi-wave-1 {
+  animation-delay: 0s;
+}
+
+.wifi-wave-2 {
+  animation-delay: 1.6s;
+}
+
+.wifi-wave-3 {
+  animation-delay: 3.2s;
+}
+
+.wifi-wave-4 {
+  animation-delay: 4.8s;
+}
+
+.wifi-wave-5 {
+  animation-delay: 6.4s;
+}
+
+.wifi-wave-6 {
+  animation-delay: 8s;
+}
+
+@keyframes wifiWaveSecondary {
+  0% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  25% {
+    opacity: 0.65;
+  }
+  70% {
+    opacity: 0.25;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.12);
+  }
+}
+
+.wifi-wave-secondary {
+  transform-origin: 250px 460px;
+  animation: wifiWaveSecondary 8.5s cubic-bezier(0.25, 1, 0.5, 1) infinite;
+  will-change: transform, opacity;
+}
+
